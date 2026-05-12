@@ -5,7 +5,7 @@ import { saveLastChannel } from "../utils/last-channel"
 import type { Logger } from "pino"
 import { MemoryStore } from "../memory/store"
 import { SessionStore } from "./session-store"
-import { MissionStore, buildBehaviorPrompt } from "../identity"
+import { MissionStore, SoulStore, buildBehaviorPrompt } from "../identity"
 import { PlanStore } from "../planning"
 
 type AssistantInput = {
@@ -142,15 +142,14 @@ function safeString(value: unknown): string | undefined {
 }
 
 
-function buildAgentSystemPrompt(behavioralPrompt: string, memory: string, heartbeatIntervalMinutes: number): string {
+function buildAgentSystemPrompt(behavioralPrompt: string, memory: string, soul: string | undefined, heartbeatIntervalMinutes: number): string {
   return [
     behavioralPrompt,
     "",
     "Technical directives:",
     "Use native OpenCode plugin tools when relevant.",
-    "Output plain text only.",
-    "No Markdown under any circumstances.",
-    "Never use Markdown markers or structure: no headings, no lists, no code fences, no inline code, no bold/italic, no blockquotes, no links.",
+    "Output plain text only. Do not use Markdown formatting in your output.",
+    "No Markdown in responses: no headings, no lists, no code fences, no inline code, no bold/italic, no blockquotes, no links.",
     "Avoid characters commonly used for Markdown formatting (e.g. # * _ ` > -). Use simple sentences instead.",
     "Do not use tables or any rich formatting because replies are shown in non-Markdown chat surfaces.",
     "A heartbeat cron runs in a separate session and its summary is added to the main session.",
@@ -207,7 +206,9 @@ function buildAgentSystemPrompt(behavioralPrompt: string, memory: string, heartb
     "",
     "Current memory:",
     memory,
-  ].join("\n")
+    "",
+    soul ? `Soul protocols (read and follow these):\n${soul}` : "",
+  ].filter(Boolean).join("\n")
 }
 
 async function createRuntime(opts: AssistantOptions): Promise<OpencodeRuntime> {
@@ -244,6 +245,7 @@ export class AssistantCore {
     private readonly logger: Logger,
     private readonly memory: MemoryStore,
     private readonly mission: MissionStore,
+    private readonly soul: SoulStore,
     private readonly plan: PlanStore,
     private readonly sessions: SessionStore,
     private readonly opts: AssistantOptions,
@@ -255,6 +257,7 @@ export class AssistantCore {
     await this.setupRuntime()
     await this.memory.init()
     await this.mission.init()
+    await this.soul.init()
     await this.plan.init()
     await this.sessions.init()
   }
@@ -270,9 +273,10 @@ export class AssistantCore {
 
     const memoryContext = await this.memory.readAll()
     const missionContext = await this.mission.readAll()
+    const soulContext = await this.soul.readAll()
     const planContext = await this.plan.getActivePlanContext()
-    const behavioralPrompt = buildBehaviorPrompt(missionContext, planContext || undefined)
-    const systemPrompt = buildAgentSystemPrompt(behavioralPrompt, memoryContext, this.opts.heartbeatIntervalMinutes)
+    const behavioralPrompt = buildBehaviorPrompt(missionContext, planContext || undefined, soulContext)
+    const systemPrompt = buildAgentSystemPrompt(behavioralPrompt, memoryContext, soulContext, this.opts.heartbeatIntervalMinutes)
 
     this.logger.info(
       {
@@ -378,9 +382,10 @@ export class AssistantCore {
 
     const memoryContext = await this.memory.readAll()
     const missionContext = await this.mission.readAll()
+    const soulContext = await this.soul.readAll()
     const planContext = await this.plan.getActivePlanContext()
-    const behavioralPrompt = buildBehaviorPrompt(missionContext, planContext || undefined)
-    const systemPrompt = buildAgentSystemPrompt(behavioralPrompt, memoryContext, this.opts.heartbeatIntervalMinutes)
+    const behavioralPrompt = buildBehaviorPrompt(missionContext, planContext || undefined, soulContext)
+    const systemPrompt = buildAgentSystemPrompt(behavioralPrompt, memoryContext, soulContext, this.opts.heartbeatIntervalMinutes)
 
     let recentContext = ""
     try {
@@ -408,6 +413,14 @@ export class AssistantCore {
       recentContext ? "" : "",
       "Task list:",
       ...tasks.map((t, i) => `${i + 1}. ${t}`),
+      "",
+      "--- Bottleneck Self-Reflection ---",
+      "Review the recent main session context for patterns of repeated failures or stalls.",
+      "If the same task or error appears more than twice, apply the Remove the Bottleneck Protocol:",
+      "1. Suggest pivoting strategy or simplifying scope",
+      "2. Note which approach has been failing",
+      "3. Propose an alternative or escalation path",
+      "Include any bottleneck findings in your output.",
     ].join("\n")
 
     let response: unknown

@@ -87,6 +87,16 @@ export class SubAgent {
     this.client = createOpencodeClient({ baseUrl })
   }
 
+  static resolveModel(role: SubAgentRole, fallback?: { providerID: string; modelID: string }): { providerID: string; modelID: string } | undefined {
+    const roleKey = role.toUpperCase()
+    const roleVar = process.env[`OPENCODE_SUBAGENT_MODEL_${roleKey}`]
+    const raw = roleVar || process.env.OPENCODE_SUBAGENT_MODEL
+    if (!raw) return fallback
+    const [providerID, ...rest] = raw.split("/")
+    if (!providerID || rest.length === 0) return fallback
+    return { providerID, modelID: rest.join("/") }
+  }
+
   async run(role: SubAgentRole, task: string, context?: string): Promise<SubAgentResult> {
     const startedAt = Date.now()
     const session = await this.createSession(role)
@@ -94,6 +104,8 @@ export class SubAgent {
     if (typeof sessionID !== "string") throw new Error("sub-agent session create failed")
 
     this.logger.info({ sessionID, role, taskLength: task.length }, "sub-agent session created")
+
+    const model = SubAgent.resolveModel(role, this.modelConfig)
 
     const systemPrompt = [
       ROLE_PROMPTS[role],
@@ -109,7 +121,7 @@ export class SubAgent {
           noReply: false,
           system: systemPrompt,
           parts: [{ type: "text", text: task }],
-          ...(this.modelConfig ? { model: this.modelConfig } : {}),
+          ...(model ? { model } : {}),
         },
       } as never)
 

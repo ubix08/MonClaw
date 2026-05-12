@@ -29,3 +29,12 @@ export type PlanSummary = {
   completedPhases: number
   status: "active" | "idle"
 }
+
+export type DecisionEntry = {
+  timestamp: string
+  gate?: string
+  decision: string
+  rationale: string
+  outcome?: string
+  score?: number
+}

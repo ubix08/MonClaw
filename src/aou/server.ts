@@ -9,6 +9,22 @@ export type AouOptions = {
   logger: Logger
 }
 
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html",
+  ".js": "application/javascript",
+  ".css": "text/css",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".json": "application/json",
+  ".woff2": "font/woff2",
+}
+
+function mimeType(path: string): string {
+  const ext = path.match(/\.(\w+)$/)?.[0]
+  return ext ? MIME_TYPES[ext] ?? "application/octet-stream" : "text/html"
+}
+
 export function startAouServer(opts: AouOptions): { stop: () => void; url: string } {
   const publicDir = resolvePath(Bun.cwd, "src/aou/public")
 
@@ -43,16 +59,19 @@ export function startAouServer(opts: AouOptions): { stop: () => void; url: strin
     port: opts.port,
     fetch(req: Request, srv: any) {
       const url = new URL(req.url)
+
       if (url.pathname === "/ws") {
         return srv.upgrade(req) ? undefined : new Response("WebSocket upgrade failed", { status: 400 })
       }
       if (url.pathname === "/health") {
         return new Response("ok", { headers: { "Content-Type": "text/plain" } })
       }
-      if (url.pathname === "/app.js") {
-        return new Response(Bun.file(publicDir + "/app.js"))
-      }
-      return new Response(Bun.file(publicDir + "/index.html"))
+
+      let filePath = url.pathname === "/" ? "/index.html" : url.pathname
+      const file = Bun.file(publicDir + filePath)
+      return new Response(file, {
+        headers: { "Content-Type": mimeType(filePath) },
+      })
     },
     websocket: handler,
   })

@@ -5,7 +5,7 @@ import { AssistantCore } from "./core/assistant"
 import { SessionStore } from "./core/session-store"
 import { WhitelistStore } from "./core/whitelist-store"
 import { MemoryStore } from "./memory/store"
-import { MissionStore } from "./identity"
+import { MissionStore, SoulStore } from "./identity"
 import { PlanStore } from "./planning"
 import { startHeartbeat } from "./scheduler/heartbeat"
 import { startAouServer } from "./aou/server"
@@ -20,10 +20,11 @@ async function main() {
 
   const memory = new MemoryStore(cfg.workspaceDir)
   const mission = new MissionStore(cfg.workspaceDir)
+  const soul = new SoulStore(cfg.workspaceDir)
   const plan = new PlanStore(cfg.workspaceDir)
   const sessions = new SessionStore()
   const whitelist = new WhitelistStore(cfg.whitelistFile)
-  const assistant = new AssistantCore(logger, memory, mission, plan, sessions, {
+  const assistant = new AssistantCore(logger, memory, mission, soul, plan, sessions, {
     model: cfg.opencodeModel,
     serverUrl: cfg.opencodeServerUrl,
     hostname: cfg.opencodeHostname,

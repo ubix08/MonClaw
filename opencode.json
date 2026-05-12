@@ -5,12 +5,8 @@
     "./.agents/plugins/memory.plugin.js",
     "./.agents/plugins/mission.plugin.js",
     "./.agents/plugins/channel-message.plugin.js",
-    "./.agents/plugins/sub-agent.plugin.js"
-  ],
-  "mcpServers": {
-    "loki-mode": {
-      "command": "/tmp/loki-mcp-venv/bin/python3",
-      "args": ["/root/MonClaw/.agents/scripts/loki-mcp-server.py"]
-    }
-  }
+    "./.agents/plugins/sub-agent.plugin.js",
+    "./.agents/plugins/decision.plugin.js",
+    "./.agents/plugins/tier.plugin.js"
+  ]
 }

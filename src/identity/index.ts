@@ -5,14 +5,16 @@ import { buildPlanningPrompt, buildNoPlanPrompt } from "../planning"
 export type {
   IdentityProfile,
   PersonalityTrait,
+  AutonomyTier,
   Milestone,
   MilestoneStatus,
   MissionState,
 } from "./types"
 export { MissionStore } from "./mission"
+export { SoulStore } from "./soul"
 export { getDefaultProfile } from "./profile"
 
-export function buildBehaviorPrompt(missionText: string, planContext?: string): string {
+export function buildBehaviorPrompt(missionText: string, planContext?: string, soulText?: string): string {
   const profile = getDefaultProfile()
 
   const planningSection = planContext
@@ -53,5 +55,27 @@ export function buildBehaviorPrompt(missionText: string, planContext?: string): 
     "",
     planningSection,
   ]
+
+  if (soulText) {
+    lines.push("", "SOUL PROTOCOLS:", soulText)
+
+    const currentTier = soulText.match(/\*\*Current Tier:\*\*\s*(.+)/)?.[1] ?? ""
+    if (currentTier.includes("Tier 2")) {
+      lines.push(
+        "",
+        "CURRENT AUTONOMY TIER: Tier 2 - Stage for Review",
+        "You must complete the work but stage it for user approval before delivery.",
+        "Do not deliver, merge, or deploy without the user reviewing and approving first.",
+      )
+    } else if (currentTier.includes("Tier 3")) {
+      lines.push(
+        "",
+        "CURRENT AUTONOMY TIER: Tier 3 - Confirm",
+        "You must present your plan to the user and await explicit confirmation before executing.",
+        "Do not write any code, create any files, or make any changes until the user approves your plan.",
+      )
+    }
+  }
+
   return lines.join("\n")
 }

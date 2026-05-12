@@ -1,8 +1,8 @@
 import { ensureDir, readText, writeText, listFiles } from "../utils/fs"
-import { joinPath, basename } from "../utils/path"
+import { joinPath } from "../utils/path"
 import { promises as fs } from "node:fs"
-import { TASK_PLAN_TEMPLATE, FINDINGS_TEMPLATE, PROGRESS_TEMPLATE } from "./templates"
-import type { PlanSummary } from "./types"
+import { TASK_PLAN_TEMPLATE, FINDINGS_TEMPLATE, PROGRESS_TEMPLATE, DECISIONS_TEMPLATE } from "./templates"
+import type { PlanSummary, DecisionEntry } from "./types"
 
 function slugify(text: string): string {
   return text
@@ -55,9 +55,12 @@ export class PlanStore {
       .replace("{{DATE}}", todayStamp())
       .replace("{{TIMESTAMP}}", nowStamp())
 
+    const decisions = DECISIONS_TEMPLATE
+
     await writeText(joinPath(planDir, "task_plan.md"), taskPlan)
     await writeText(joinPath(planDir, "findings.md"), findings)
     await writeText(joinPath(planDir, "progress.md"), progress)
+    await writeText(joinPath(planDir, "decisions.md"), decisions)
 
     await this.setActivePlan(dirName)
 
@@ -90,11 +93,13 @@ export class PlanStore {
     const taskPlan = await this.tryRead(joinPath(planDir, "task_plan.md"))
     const findings = await this.tryRead(joinPath(planDir, "findings.md"))
     const progress = await this.tryRead(joinPath(planDir, "progress.md"))
+    const decisions = await this.tryRead(joinPath(planDir, "decisions.md"))
 
     const parts: string[] = []
     if (taskPlan) parts.push(`---BEGIN PLAN---\n${taskPlan}\n---END PLAN---`)
     if (findings) parts.push(`---BEGIN FINDINGS---\n${findings}\n---END FINDINGS---`)
     if (progress) parts.push(`---BEGIN PROGRESS---\n${progress}\n---END PROGRESS---`)
+    if (decisions) parts.push(`---BEGIN DECISIONS---\n${decisions}\n---END DECISIONS---`)
 
     return parts.join("\n\n")
   }
@@ -145,6 +150,39 @@ export class PlanStore {
     } catch {
       return false
     }
+  }
+
+  async appendDecision(entry: DecisionEntry): Promise<void> {
+    const dir = await this.getActivePlanDir()
+    if (!dir) throw new Error("No active plan to log decision to")
+    const planDir = joinPath(this.plansDir, dir)
+    const decisionsFile = joinPath(planDir, "decisions.md")
+    let content = await this.tryRead(decisionsFile) ?? ""
+    if (!content) {
+      content = DECISIONS_TEMPLATE
+    }
+    const ts = entry.timestamp || nowStamp()
+    const gateRow = `| ${ts} | ${entry.gate ?? "-"} | ${entry.outcome ?? "-"} | ${entry.score ?? "-"} | ${entry.rationale} |`
+    const keyDecisionsIdx = content.indexOf("## Key Decisions")
+    if (keyDecisionsIdx === -1) {
+      content += `\n${gateRow}\n`
+    } else {
+      content = content.slice(0, keyDecisionsIdx) + gateRow + "\n\n" + content.slice(keyDecisionsIdx)
+    }
+    if (entry.decision) {
+      const decisionIdx = content.indexOf("## Key Decisions")
+      if (decisionIdx !== -1) {
+        const sepStart = content.indexOf("|---", decisionIdx)
+        if (sepStart !== -1) {
+          const afterSep = content.indexOf("\n", sepStart)
+          if (afterSep !== -1) {
+            const decisionRow = `| ${ts} | ${entry.decision} | ${entry.rationale} | - |`
+            content = content.slice(0, afterSep + 1) + decisionRow + "\n" + content.slice(afterSep + 1)
+          }
+        }
+      }
+    }
+    await writeText(decisionsFile, content)
   }
 
   private async loadActivePointer(): Promise<void> {

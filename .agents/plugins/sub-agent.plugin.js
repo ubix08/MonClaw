@@ -71,8 +71,10 @@ function baseUrl() {
   return process.env.OPENCODE_SERVER_BASE_URL || "http://127.0.0.1:4096"
 }
 
-function modelConfig() {
-  const raw = process.env.OPENCODE_SUBAGENT_MODEL
+function modelConfig(role) {
+  const roleKey = role ? role.toUpperCase() : ''
+  const roleVar = roleKey ? process.env[`OPENCODE_SUBAGENT_MODEL_${roleKey}`] : undefined
+  const raw = roleVar || process.env.OPENCODE_SUBAGENT_MODEL
   if (!raw) return undefined
   const [providerID, ...rest] = raw.split("/")
   if (!providerID || rest.length === 0) return undefined
@@ -142,7 +144,6 @@ async function pollReply(client, sessionID, timeoutMs = 120000) {
 export default async () => {
   const url = baseUrl()
   const client = createOpencodeClient({ baseUrl: url })
-  const model = modelConfig()
 
   return {
     tool: {
@@ -151,8 +152,7 @@ export default async () => {
         args: {
           role: tool.schema
             .string()
-            .describe("Sub-agent specialization: plan, code, review, research, debug, test")
-            .validate((v) => VALID_ROLES.includes(v) || "Must be one of: plan, code, review, research, debug, test"),
+            .describe("Sub-agent specialization: plan, code, review, research, debug, test, loki"),
           task: tool.schema.string().describe("The specific task for the sub-agent to complete"),
           context: tool.schema
             .string()
@@ -161,7 +161,9 @@ export default async () => {
         },
         async execute(args) {
           const { role, task, context } = args
+          if (!VALID_ROLES.includes(role)) return `Invalid sub-agent role: ${role}. Must be one of: ${VALID_ROLES.join(", ")}`
           const startedAt = Date.now()
+          const model = modelConfig(role)
 
           const session = await client.session.create({
             body: { title: `sub:${role}:${Date.now()}` },

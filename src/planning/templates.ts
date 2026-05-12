@@ -93,3 +93,16 @@ export const PROGRESS_TEMPLATE = `# Progress Log
 |-----------|-------|---------|------------|
 |           |       | 1       |            |
 `
+
+export const DECISIONS_TEMPLATE = `# Decisions Log
+
+## Gate Outcomes
+| Timestamp | Gate | Result | Score | Rationale |
+|-----------|------|--------|-------|-----------|
+|           |      |        |       |           |
+
+## Key Decisions
+| Timestamp | Decision | Rationale | Alternatives Considered |
+|-----------|----------|-----------|------------------------|
+|           |          |           |                        |
+`

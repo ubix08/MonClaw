@@ -11,6 +11,8 @@ export type IdentityProfile = {
   communicationStyle: string
 }
 
+export type AutonomyTier = "autonomous" | "stage_for_review" | "confirm"
+
 export type MilestoneStatus = "pending" | "in_progress" | "completed"
 
 export type Milestone = {
