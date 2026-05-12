@@ -6,6 +6,7 @@ export type AppConfig = {
   logLevel: string
   heartbeatIntervalMinutes: number
   heartbeatFile: string
+  playbookFile: string
   enableTelegram: boolean
   telegramToken?: string
   enableWhatsApp: boolean
@@ -68,6 +69,7 @@ export async function loadConfig(): Promise<AppConfig> {
     logLevel: Bun.env.LOG_LEVEL ?? "info",
     heartbeatIntervalMinutes: envInt(Bun.env.HEARTBEAT_INTERVAL_MINUTES, 30),
     heartbeatFile: resolvePath(cwd, Bun.env.HEARTBEAT_FILE ?? ".data/heartbeat.md"),
+    playbookFile: resolvePath(cwd, Bun.env.PLAYBOOK_FILE ?? ".data/workspace/playbook.md"),
     enableTelegram: envBool(Bun.env.ENABLE_TELEGRAM, false),
     telegramToken: Bun.env.TELEGRAM_BOT_TOKEN,
     enableWhatsApp: envBool(Bun.env.ENABLE_WHATSAPP, false),

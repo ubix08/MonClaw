@@ -362,6 +362,57 @@ export class AssistantCore {
     await this.memory.append(note, source)
   }
 
+  async runWorkCycle(opts: {
+    prompt: string
+    timeoutSeconds?: number
+  }): Promise<{ success: boolean; output: string; error?: string; durationMs: number }> {
+    const startedAt = Date.now()
+    const sessionID = await this.getOrCreateWorkSession()
+    const client = this.ensureClient()
+    const timeout = (opts.timeoutSeconds || 1800) * 1000
+
+    const memoryContext = await this.memory.readAll()
+    const missionContext = await this.mission.readAll()
+    const soulContext = await this.soul.readAll()
+    const planContext = await this.plan.getActivePlanContext()
+    const behavioralPrompt = buildBehaviorPrompt(missionContext, planContext || undefined, soulContext)
+    const systemPrompt = buildAgentSystemPrompt(behavioralPrompt, memoryContext, soulContext, this.opts.heartbeatIntervalMinutes)
+
+    const result = await Promise.race([
+      (async (): Promise<{ success: boolean; output: string; error?: string }> => {
+        try {
+          const response = await client.session.prompt({
+            path: { id: sessionID },
+            body: {
+              noReply: false,
+              system: systemPrompt,
+              parts: [{ type: "text", text: opts.prompt }],
+              ...(this.modelConfig ? { model: this.modelConfig } : {}),
+            },
+          } as never)
+
+          const text = await extractPromptText(response)
+          if (text === "I could not parse the assistant response.") {
+            return { success: false, output: "", error: "Failed to parse model response" }
+          }
+          return { success: true, output: text }
+        } catch (e) {
+          return { success: false, output: "", error: e instanceof Error ? e.message : String(e) }
+        }
+      })(),
+      new Promise<{ success: false; output: ""; error: string }>((resolve) =>
+        setTimeout(() => resolve({ success: false, output: "", error: `Work cycle timeout after ${opts.timeoutSeconds || 1800}s` }), timeout),
+      ),
+    ])
+
+    const durationMs = Date.now() - startedAt
+    this.logger.info(
+      { sessionID, success: result.success, durationMs },
+      "work cycle completed",
+    )
+    return { ...result, durationMs }
+  }
+
   async heartbeatTaskStatus(): Promise<{ file: string; taskCount: number; empty: boolean }> {
     const file = this.opts.heartbeatFile
     const tasks = await this.loadHeartbeatTasks()
@@ -526,6 +577,14 @@ export class AssistantCore {
     if (existing) return existing
     const created = await this.createSession("heartbeat")
     await this.sessions.setHeartbeatSessionID(created)
+    return created
+  }
+
+  private async getOrCreateWorkSession(): Promise<string> {
+    const existing = this.sessions.getWorkSessionID()
+    if (existing) return existing
+    const created = await this.createSession("work")
+    await this.sessions.setWorkSessionID(created)
     return created
   }
 

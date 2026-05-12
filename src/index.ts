@@ -11,7 +11,6 @@ import { startHeartbeat } from "./scheduler/heartbeat"
 import { startAouServer } from "./aou/server"
 import { createLogger } from "./utils/logger"
 
-// Ensure OpenCode reads AGENTS.md from this workspace by default.
 process.env.OPENCODE_CONFIG_DIR ??= Bun.cwd
 
 async function main() {
@@ -35,17 +34,8 @@ async function main() {
 
   await assistant.init()
   await whitelist.init()
-  const heartbeatStatus = await assistant.heartbeatTaskStatus()
-  if (heartbeatStatus.empty) {
-    logger.warn(
-      {
-        heartbeatFile: heartbeatStatus.file,
-      },
-      "heartbeat.md is empty. Add one task per line to enable periodic heartbeat. Leaving it empty disables heartbeat.",
-    )
-  } else {
-    startHeartbeat(cfg.heartbeatIntervalMinutes, assistant, logger)
-  }
+
+  startHeartbeat(cfg.heartbeatIntervalMinutes, assistant, cfg.playbookFile, logger)
 
   let shuttingDown = false
   const shutdown = (code: number) => {

@@ -4,6 +4,7 @@ import { dirname, resolvePath } from "../utils/path"
 type SessionData = {
   mainSessionID?: string
   heartbeatSessionID?: string
+  workSessionID?: string
 }
 
 export class SessionStore {
@@ -18,6 +19,7 @@ export class SessionStore {
       this.cache = {
         mainSessionID: typeof obj.mainSessionID === "string" ? obj.mainSessionID : undefined,
         heartbeatSessionID: typeof obj.heartbeatSessionID === "string" ? obj.heartbeatSessionID : undefined,
+        workSessionID: typeof obj.workSessionID === "string" ? obj.workSessionID : undefined,
       }
     } catch {
       await this.persist()
@@ -39,6 +41,15 @@ export class SessionStore {
 
   async setHeartbeatSessionID(sessionID: string): Promise<void> {
     this.cache.heartbeatSessionID = sessionID
+    await this.persist()
+  }
+
+  getWorkSessionID(): string | undefined {
+    return this.cache.workSessionID
+  }
+
+  async setWorkSessionID(sessionID: string): Promise<void> {
+    this.cache.workSessionID = sessionID
     await this.persist()
   }
 
