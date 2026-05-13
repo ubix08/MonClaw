@@ -180,11 +180,10 @@ export async function startTelegramAdapter(opts: TelegramAdapterOptions): Promis
     opts.logger.error({ err, updateID: err.ctx?.update?.update_id }, "telegram bot error")
   })
 
-  const startPromise = bot.start()
+  bot.start()
   void flushOutbox()
   setInterval(() => {
     void flushOutbox()
   }, 60000)
   opts.logger.info("telegram adapter started")
-  await startPromise
 }

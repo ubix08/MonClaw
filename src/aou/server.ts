@@ -1,3 +1,4 @@
+import { resolve } from "node:path"
 import type { Logger } from "pino"
 import type { AssistantCore } from "../core/assistant"
 import { resolvePath } from "../utils/path"
@@ -25,6 +26,13 @@ function mimeType(path: string): string {
   return ext ? MIME_TYPES[ext] ?? "application/octet-stream" : "text/html"
 }
 
+function safePath(publicDir: string, requestPath: string): string {
+  const cleaned = requestPath.split("?")[0].split("#")[0]
+  const resolved = resolve(publicDir, "." + cleaned)
+  if (!resolved.startsWith(publicDir)) return resolve(publicDir, "index.html")
+  return resolved
+}
+
 export function startAouServer(opts: AouOptions): { stop: () => void; url: string } {
   const publicDir = resolvePath(Bun.cwd, "src/aou/public")
 
@@ -34,7 +42,11 @@ export function startAouServer(opts: AouOptions): { stop: () => void; url: strin
       opts.logger.info({ userID: ws.data.userID }, "aou websocket opened")
     },
     async message(ws: any, raw: string | Buffer) {
-      const text = typeof raw === "string" ? raw.trim() : ""
+      if (typeof raw !== "string") {
+        opts.logger.warn("binary websocket message discarded")
+        return
+      }
+      const text = raw.trim()
       if (!text) return
       try {
         const answer = await opts.assistant.ask({
@@ -61,14 +73,15 @@ export function startAouServer(opts: AouOptions): { stop: () => void; url: strin
       const url = new URL(req.url)
 
       if (url.pathname === "/ws") {
-        return srv.upgrade(req) ? undefined : new Response("WebSocket upgrade failed", { status: 400 })
+        srv.upgrade(req)
+        return
       }
       if (url.pathname === "/health") {
         return new Response("ok", { headers: { "Content-Type": "text/plain" } })
       }
 
-      let filePath = url.pathname === "/" ? "/index.html" : url.pathname
-      const file = Bun.file(publicDir + filePath)
+      const filePath = url.pathname === "/" ? "/index.html" : url.pathname
+      const file = Bun.file(safePath(publicDir, filePath))
       return new Response(file, {
         headers: { "Content-Type": mimeType(filePath) },
       })

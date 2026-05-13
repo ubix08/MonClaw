@@ -6,7 +6,6 @@ import { SessionStore } from "./core/session-store"
 import { WhitelistStore } from "./core/whitelist-store"
 import { MemoryStore } from "./memory/store"
 import { MissionStore, SoulStore } from "./identity"
-import { PlanStore } from "./planning"
 import { startHeartbeat } from "./scheduler/heartbeat"
 import { startAouServer } from "./aou/server"
 import { createLogger } from "./utils/logger"
@@ -20,10 +19,9 @@ async function main() {
   const memory = new MemoryStore(cfg.workspaceDir)
   const mission = new MissionStore(cfg.workspaceDir)
   const soul = new SoulStore(cfg.workspaceDir)
-  const plan = new PlanStore(cfg.workspaceDir)
   const sessions = new SessionStore()
   const whitelist = new WhitelistStore(cfg.whitelistFile)
-  const assistant = new AssistantCore(logger, memory, mission, soul, plan, sessions, {
+  const assistant = new AssistantCore(logger, memory, mission, soul, sessions, {
     model: cfg.opencodeModel,
     serverUrl: cfg.opencodeServerUrl,
     hostname: cfg.opencodeHostname,
@@ -48,9 +46,6 @@ async function main() {
   process.on("SIGTERM", () => shutdown(0))
   process.on("SIGHUP", () => shutdown(0))
   process.on("SIGQUIT", () => shutdown(0))
-  process.on("exit", () => {
-    void assistant.close()
-  })
   process.on("uncaughtException", (error) => {
     logger.error({ error }, "uncaught exception")
     shutdown(1)

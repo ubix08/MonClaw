@@ -4,7 +4,11 @@ import { randomUUID } from "node:crypto"
 import { promises as fs } from "node:fs"
 
 export class MemoryStore {
-  constructor(private readonly rootDir: string) {}
+  private readonly maxEntries: number
+
+  constructor(private readonly rootDir: string, maxEntries = 100) {
+    this.maxEntries = maxEntries
+  }
 
   private get filePath(): string {
     return joinPath(this.rootDir, "MEMORY.md")
@@ -27,7 +31,12 @@ export class MemoryStore {
     try {
       await fs.copyFile(this.filePath, tmpPath)
       const existing = await readText(tmpPath)
-      await writeText(tmpPath, `${existing}${prefix}${note.trim()}\n`)
+      const lines = existing.split("\n")
+      const header = lines[0]?.startsWith("#") ? lines[0] : "# Memory"
+      const entries = lines.filter((l) => l.startsWith("- "))
+      entries.push(`${prefix}${note.trim()}`)
+      const pruned = entries.slice(-this.maxEntries)
+      await writeText(tmpPath, `${header}\n${pruned.join("\n")}\n`)
       await fs.rename(tmpPath, this.filePath)
     } catch (error) {
       try { await fs.unlink(tmpPath) } catch { /* ignore */ }

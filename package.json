@@ -21,6 +21,7 @@
     "qrcode-terminal": "latest"
   },
   "devDependencies": {
+    "@types/bun": "^1.3.13",
     "@types/node": "latest",
     "@types/qrcode-terminal": "latest",
     "typescript": "latest"
